@@ -1,5 +1,6 @@
 import socket
 import io
+import re
 from fastapi import FastAPI, Request, Form, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +16,72 @@ app.add_middleware(SessionMiddleware, secret_key="vigibot_san_ignacio_secret_key
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Diccionario inteligente de normalización médica y ortográfica
+DICCIONARIO_FARMA = {
+    # Reacciones y síntomas
+    r"\brojecmiento\b": "enrojecimiento",
+    r"\brojes\b": "enrojecimiento",
+    r"\brojez\b": "enrojecimiento",
+    r"\brojizo\b": "enrojecido",
+    r"\bcavesa\b": "cabeza",
+    r"\bcavza\b": "cabeza",
+    r"\bcaveza\b": "cabeza",
+    r"\bdolor de cavesa\b": "dolor de cabeza",
+    r"\bestomago\b": "estómago",
+    r"\bestomak\b": "estómago",
+    r"\bpancita\b": "abdomen",
+    r"\bdolor de barriga\b": "dolor abdominal",
+    r"\bnauseas\b": "náuseas",
+    r"\bvomito\b": "vómito",
+    r"\bvomitos\b": "vómitos",
+    r"\bdiarea\b": "diarrea",
+    r"\bdiarreah\b": "diarrea",
+    r"\bpicazon\b": "picazón / prurito",
+    r"\bcomezon\b": "comezón / prurito",
+    r"\brash\b": "rash cutáneo",
+    r"\bmal de stimado\b": "malestar general",
+    r"\bmal de stima\b": "malestar general",
+    r"\bmal estado\b": "malestar general",
+    r"\bfiebre\b": "fiebre",
+    r"\bfievr\b": "fiebre",
+    r"\btaquicardia\b": "taquicardia",
+    r"\bdesmayo\b": "desmayo",
+    r"\bmareo\b": "mareo",
+    r"\bmareos\b": "mareos",
+    r"\bhinchason\b": "hinchazón / edema",
+    r"\bhinchazon\b": "hinchazón / edema",
+    r"\balergia\b": "reacción alérgica",
+    
+    # Medicamentos frecuentes
+    r"\bparasetamol\b": "Paracetamol",
+    r"\bparacetamol\b": "Paracetamol",
+    r"\bamoxisilina\b": "Amoxicilina",
+    r"\bamoxicilina\b": "Amoxicilina",
+    r"\bibuprofeno\b": "Ibuprofeno",
+    r"\bivuprufeno\b": "Ibuprofeno",
+    r"\bceftriaxona\b": "Ceftriaxona",
+    r"\bazitromicina\b": "Azitromicina",
+    r"\basitromicina\b": "Azitromicina",
+    r"\bdiclofenaco\b": "Diclofenaco",
+    r"\bdiclofenac\b": "Diclofenaco",
+    r"\bnaproxeno\b": "Naproxeno",
+    r"\bclorfenamina\b": "Clorfenamina",
+    r"\bloratadina\b": "Loratadina",
+    r"\bomeprazol\b": "Omeprazol",
+    r"\bmetamizol\b": "Metamizol",
+    r"\bdexametasona\b": "Dexametasona"
+}
+
+def normalizar_texto_medico(texto: str) -> str:
+    if not texto:
+        return ""
+    limpio = " ".join(texto.strip().split())
+    for patron, reemplazo in DICCIONARIO_FARMA.items():
+        limpio = re.sub(patron, reemplazo, limpio, flags=re.IGNORECASE)
+    if len(limpio) > 1:
+        limpio = limpio[0].upper() + limpio[1:]
+    return limpio
+
 @app.on_event("startup")
 def startup_event():
     database.init_db()
@@ -26,6 +93,16 @@ async def home(request: Request):
 
 @app.post("/api/guardar-reporte")
 async def api_guardar_reporte(data: dict):
+    # Corrección ortográfica y normalización previa
+    if "reaccion" in data:
+        data["reaccion"] = normalizar_texto_medico(data.get("reaccion", ""))
+    if "medicamento" in data:
+        data["medicamento"] = normalizar_texto_medico(data.get("medicamento", ""))
+    if "paciente_nombre" in data and data["paciente_nombre"]:
+        data["paciente_nombre"] = data["paciente_nombre"].strip().title()
+    if "notificador_nombre" in data and data["notificador_nombre"]:
+        data["notificador_nombre"] = data["notificador_nombre"].strip().title()
+
     reporte_id = database.guardar_reporte(data)
     return JSONResponse({
         "status": "success",
@@ -68,6 +145,39 @@ async def dashboard_page(request: Request, msg: str = None, error: str = None):
         "error": error
     })
 
+@app.post("/editar-reporte")
+async def editar_reporte(
+    request: Request,
+    reporte_id: int = Form(...),
+    paciente_nombre: str = Form(...),
+    paciente_edad: str = Form(...),
+    paciente_sexo: str = Form(...),
+    medicamento: str = Form(...),
+    lote: str = Form(""),
+    dosis_via: str = Form(""),
+    reaccion: str = Form(...),
+    gravedad: str = Form(...),
+    desenlace: str = Form(""),
+    estado: str = Form("Pendiente")
+):
+    if not request.session.get("authenticated"):
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    
+    datos_actualizados = {
+        "paciente_nombre": paciente_nombre.strip(),
+        "paciente_edad": paciente_edad.strip(),
+        "paciente_sexo": paciente_sexo.strip(),
+        "medicamento": medicamento.strip(),
+        "lote": lote.strip(),
+        "dosis_via": dosis_via.strip(),
+        "reaccion": reaccion.strip(),
+        "gravedad": gravedad.strip(),
+        "desenlace": desenlace.strip(),
+        "estado": estado.strip()
+    }
+    database.actualizar_reporte(reporte_id, datos_actualizados)
+    return RedirectResponse(url=f"/dashboard?msg=Reporte+#{reporte_id}+actualizado+correctamente", status_code=status.HTTP_302_FOUND)
+
 @app.get("/exportar-excel")
 async def exportar_excel(request: Request):
     if not request.session.get("authenticated"):
@@ -80,13 +190,13 @@ async def exportar_excel(request: Request):
     ws.title = "Reportes RAM - ESAVI"
     
     # Membrete institucional
-    ws.merge_cells("A1:K1")
+    ws.merge_cells("A1:L1")
     ws["A1"] = "RED INTEGRADA DE SALUD SAN IGNACIO - CAJAMARCA"
     ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
     ws["A1"].fill = PatternFill(start_color="094A73", end_color="094A73", fill_type="solid")
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     
-    ws.merge_cells("A2:K2")
+    ws.merge_cells("A2:L2")
     ws["A2"] = "SISTEMA VIGIBOT | Responsable: Q.F. Valeria Flor Echevarria Aroni - Farmacovigilancia"
     ws["A2"].font = Font(name="Calibri", size=11, bold=True, color="333333")
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
@@ -94,7 +204,7 @@ async def exportar_excel(request: Request):
     headers = [
         "ID", "Fecha de Registro", "Paciente / Iniciales", "Edad", "Sexo", 
         "Medicamento Sospechoso", "Lote / Vence", "Reacción Adversa (RAM)", 
-        "Gravedad", "Desenlace", "Notificador (Contacto)"
+        "Gravedad", "Desenlace", "Notificador (Contacto)", "Estado"
     ]
     
     header_fill = PatternFill(start_color="006699", end_color="006699", fill_type="solid")
@@ -127,7 +237,8 @@ async def exportar_excel(request: Request):
             r.get("reaccion"),
             r.get("gravedad"),
             r.get("desenlace"),
-            f"{r.get('notificador_nombre')} ({r.get('notificador_tipo')}) - {r.get('notificador_contacto')}"
+            f"{r.get('notificador_nombre')} ({r.get('notificador_tipo')}) - {r.get('notificador_contacto')}",
+            r.get("estado", "Pendiente")
         ]
         ws.append(row_data)
         current_row = ws.max_row
@@ -136,7 +247,6 @@ async def exportar_excel(request: Request):
             cell.border = thin_border
             cell.alignment = Alignment(vertical="center")
     
-    # Ajustar ancho de columnas automáticamente
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = openpyxl.utils.get_column_letter(col[0].column)

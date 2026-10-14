@@ -67,8 +67,8 @@ def guardar_reporte(data: dict):
         INSERT INTO reportes (
             fecha_registro, notificador_nombre, notificador_tipo, notificador_contacto,
             paciente_nombre, paciente_edad, paciente_sexo, medicamento, dosis_via,
-            lote, reaccion, gravedad, desenlace
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            lote, reaccion, gravedad, desenlace, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         data.get("notificador_nombre", ""),
@@ -82,7 +82,8 @@ def guardar_reporte(data: dict):
         data.get("lote", ""),
         data.get("reaccion", ""),
         data.get("gravedad", ""),
-        data.get("desenlace", "")
+        data.get("desenlace", ""),
+        data.get("estado", "Pendiente")
     ))
     conn.commit()
     reporte_id = cursor.lastrowid
@@ -97,3 +98,44 @@ def obtener_reportes():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+def obtener_reporte_por_id(reporte_id: int):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM reportes WHERE id = ?", (reporte_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def actualizar_reporte(reporte_id: int, data: dict):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE reportes SET
+            paciente_nombre = ?,
+            paciente_edad = ?,
+            paciente_sexo = ?,
+            medicamento = ?,
+            dosis_via = ?,
+            lote = ?,
+            reaccion = ?,
+            gravedad = ?,
+            desenlace = ?,
+            estado = ?
+        WHERE id = ?
+    ''', (
+        data.get("paciente_nombre"),
+        data.get("paciente_edad"),
+        data.get("paciente_sexo"),
+        data.get("medicamento"),
+        data.get("dosis_via"),
+        data.get("lote"),
+        data.get("reaccion"),
+        data.get("gravedad"),
+        data.get("desenlace"),
+        data.get("estado"),
+        reporte_id
+    ))
+    conn.commit()
+    conn.close()
