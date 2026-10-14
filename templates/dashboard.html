@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Farmacovigilancia - Q.F. Valeria Flor Echevarria Aroni</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dashboard-body">
+    <header class="top-nav">
+        <div class="nav-brand-group">
+            <img src="/static/logo.png" alt="Logo San Ignacio" class="inst-logo-nav">
+            <div>
+                <h1>Red Integrada de Salud San Ignacio</h1>
+                <span class="officer-title">Módulo de Farmacovigilancia | <strong>Q.F. Valeria Flor Echevarria Aroni</strong></span>
+            </div>
+        </div>
+        <div class="actions">
+            <button onclick="document.getElementById('modalCompartir').style.display='flex'" class="btn-share">🔗 Compartir Link</button>
+            <button onclick="document.getElementById('modalClave').style.display='flex'" class="btn-key">🔑 Cambiar Clave</button>
+            <a href="/exportar-excel" class="btn-excel">📊 Exportar Excel</a>
+            <button onclick="window.print()" class="btn-secondary">🖨️ Imprimir PDF</button>
+            <a href="/logout" class="btn-danger">Cerrar Sesión</a>
+        </div>
+    </header>
+
+    <main class="content-container">
+        {% if msg %}
+        <div class="alert-success">{{ msg }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="alert-error-banner">{{ error }}</div>
+        {% endif %}
+
+        <div class="summary-cards">
+            <div class="card">
+                <h3>Total Reportes RAM / ESAVI</h3>
+                <p class="card-num">{{ reportes|length }}</p>
+            </div>
+            <div class="card">
+                <h3>Jurisdicción Sanitaria</h3>
+                <p class="card-status">RIS San Ignacio - Cajamarca</p>
+            </div>
+            <div class="card">
+                <h3>Responsable Técnico</h3>
+                <p class="card-status" style="color: #006699;">Q.F. Valeria Flor Echevarria A.</p>
+            </div>
+        </div>
+
+        <section class="table-card">
+            <div class="table-header-flex">
+                <div>
+                    <h2>Bandeja de Reportes para Notificación Oficial (VigiFlow / DIGEMID)</h2>
+                    <p class="sub-text-card">Reportes capturados a través del asistente VigiBot</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <a href="/exportar-excel" class="btn-excel" style="padding: 6px 12px; font-size: 12px;">Descargar .XLSX</a>
+                    <span class="tag-jurisdiccion">Área de Farmacia</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Paciente</th>
+                            <th>Medicamento</th>
+                            <th>Lote</th>
+                            <th>Reacción Adversa</th>
+                            <th>Gravedad</th>
+                            <th>Notificador / Contacto</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reportes %}
+                        <tr>
+                            <td>#{{ r.id }}</td>
+                            <td>{{ r.fecha_registro }}</td>
+                            <td><strong>{{ r.paciente_nombre }}</strong></td>
+                            <td class="text-primary"><strong>{{ r.medicamento }}</strong></td>
+                            <td>{{ r.lote }}</td>
+                            <td>{{ r.reaccion }}</td>
+                            <td><span class="badge {{ 'badge-grave' if 'grave' in r.gravedad.lower() or 'emergencia' in r.gravedad.lower() else 'badge-leve' }}">{{ r.gravedad }}</span></td>
+                            <td>{{ r.notificador_nombre }} ({{ r.notificador_tipo }})<br><small>{{ r.notificador_contacto }}</small></td>
+                            <td><span class="badge-status">{{ r.estado }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 35px; color: #64748b;">No hay reportes registrados aún en el sistema.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL CAMBIAR CONTRASEÑA -->
+    <div id="modalClave" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>🔑 Cambiar Clave del Panel</h3>
+                <button type="button" class="btn-close" onclick="document.getElementById('modalClave').style.display='none'">&times;</button>
+            </div>
+            <form action="/cambiar-clave" method="POST" class="modal-form">
+                <div class="form-group">
+                    <label>Contraseña Actual:</label>
+                    <input type="password" name="clave_actual" placeholder="Ingresa la clave actual" required>
+                </div>
+                <div class="form-group">
+                    <label>Nueva Contraseña:</label>
+                    <input type="password" name="clave_nueva" placeholder="Mínimo 6 caracteres" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Nueva Contraseña:</label>
+                    <input type="password" name="clave_confirmar" placeholder="Repite la nueva clave" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('modalClave').style.display='none'">Cancelar</button>
+                    <button type="submit" class="btn-save">Guardar Nueva Clave</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL COMPARTIR LINK -->
+    <div id="modalCompartir" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>🔗 Compartir VigiBot</h3>
+                <button type="button" class="btn-close" onclick="document.getElementById('modalCompartir').style.display='none'">&times;</button>
+            </div>
+            <div class="share-content">
+                <p>Copia este enlace para enviarlo por WhatsApp a los pacientes o centros de salud:</p>
+                <div class="share-box">
+                    <input type="text" id="shareUrl" readonly>
+                    <button onclick="copiarLink()" class="btn-copy">Copiar</button>
+                </div>
+                <small id="copyStatus" style="color: #10b981; display: none; margin-top: 8px; font-weight: 600;">✓ ¡Enlace copiado al portapapeles!</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('shareUrl').value = window.location.origin;
+
+        function copiarLink() {
+            const input = document.getElementById('shareUrl');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            document.getElementById('copyStatus').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('copyStatus').style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

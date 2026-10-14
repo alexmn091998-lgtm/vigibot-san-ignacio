@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Privado - Red Integrada de Salud San Ignacio</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-header text-center">
+            <img src="/static/logo.png" alt="Logo San Ignacio" class="inst-logo-login">
+            <h2>Red Integrada de Salud San Ignacio</h2>
+            <p class="prof-tag">Despacho Farmacéutico: <strong>Q.F. Valeria Flor Echevarria Aroni</strong></p>
+            <p>Acceso Restringido a Gestión de Farmacovigilancia</p>
+        </div>
+
+        {% if error %}
+        <div class="alert-error">{{ error }}</div>
+        {% endif %}
+
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="password">Contraseña de acceso:</label>
+                <input type="password" id="password" name="password" placeholder="Ingresa la clave maestra" required autofocus>
+            </div>
+            <button type="submit" class="btn-primary">Ingresar al Panel</button>
+        </form>
+        <div class="login-footer">
+            <a href="/">← Volver al chat de VigiBot</a>
+        </div>
+    </div>
+</body>
+</html>

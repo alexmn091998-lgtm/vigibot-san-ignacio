@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VigiBot - Red Integrada de Salud San Ignacio</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="chat-container">
+        <header class="chat-header">
+            <div class="header-branding">
+                <img src="/static/logo.png" alt="Logo Red de Salud San Ignacio" class="inst-logo">
+                <div class="header-info">
+                    <span class="bot-badge">VigiBot AI • Farmacovigilancia</span>
+                    <h2>Red Integrada de Salud San Ignacio</h2>
+                    <p class="sub-officer">Responsable: <strong>Q.F. Valeria Flor Echevarria Aroni</strong></p>
+                    <p class="sub-norma">Notificación de Sospecha de RAM y ESAVI (Normativa DIGEMID)</p>
+                </div>
+            </div>
+            <a href="/login" class="btn-admin-link" title="Acceso Químico Farmacéutico">🔒 Panel Q.F.</a>
+        </header>
+
+        <div class="chat-box" id="chatBox"></div>
+
+        <form class="chat-input-area" id="chatForm">
+            <input type="text" id="userInput" placeholder="Escribe tu respuesta aquí..." autocomplete="off" required>
+            <button type="submit" id="sendBtn">Enviar</button>
+        </form>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+
+        const steps = [
+            { key: "notificador_tipo", q: "¡Hola! Te damos la bienvenida a **VigiBot**, el sistema de farmacovigilancia de la **Red Integrada de Salud San Ignacio**, a cargo de la **Q.F. Valeria Flor Echevarria Aroni**.<br><br>Para empezar el reporte: ¿Quién realiza la notificación? (Ej: Paciente, Familiar, Médico, Farmacéutico, Enfermero/a)" },
+            { key: "notificador_nombre", q: "Indica tu nombre completo (o iniciales) y un número de celular o correo de contacto para seguimiento:" },
+            { key: "paciente_nombre", q: "¿A nombre de quién ocurrió la reacción adversa? (Indica iniciales o nombre del paciente, edad y sexo. Ej: M.P. - 45 años - Femenino):" },
+            { key: "medicamento", q: "¿Cuál es el medicamento sospechoso? (Indica nombre comercial o genérico y presentación/dosis si la sabes):" },
+            { key: "lote", q: "¿Cuentas con el número de lote o fecha de vencimiento que figura en el empaque? (Si no lo tienes a la mano, responde 'No disponible'):" },
+            { key: "reaccion", q: "Describe detalladamente qué síntomas o molestias presentó y aproximadamente cuánto tiempo después de tomarlo iniciaron:" },
+            { key: "gravedad", q: "¿Consideras que fue grave? (Ej: Requirió hospitalización / atención médica de urgencia, o fue un malestar que pasó en casa):" },
+            { key: "desenlace", q: "Por último, ¿cuál es el estado actual del paciente? (Ej: Ya se recuperó, suspendió el medicamento, o aún continúa con síntomas):" }
+        ];
+
+        let currentStep = 0;
+        let formData = {};
+
+        function addMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}-message`;
+            msgDiv.innerHTML = `<div class="bubble">${text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        window.onload = () => {
+            addMessage(steps[0].q, 'bot');
+        };
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            userInput.value = '';
+
+            formData[steps[currentStep].key] = text;
+            currentStep++;
+
+            if (currentStep < steps.length) {
+                setTimeout(() => {
+                    addMessage(steps[currentStep].q, 'bot');
+                }, 400);
+            } else {
+                addMessage("⏳ Guardando reporte y derivándolo al área de Farmacovigilancia...", 'bot');
+                
+                try {
+                    const response = await fetch('/api/guardar-reporte', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const result = await response.json();
+                    
+                    setTimeout(() => {
+                        addMessage("✅ **¡Reporte registrado exitosamente!**<br>La información fue remitida al despacho de la **Q.F. Valeria Flor Echevarria Aroni** en la **Red Integrada de Salud San Ignacio** para su evaluación técnica y notificación a los sistemas oficiales. ¡Muchas gracias por tu compromiso con la salud!", 'bot');
+                    }, 500);
+                } catch (error) {
+                    addMessage("❌ Ocurrió un error al registrar el reporte. Por favor intenta de nuevo.", 'bot');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
